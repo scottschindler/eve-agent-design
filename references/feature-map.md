@@ -117,7 +117,7 @@ Root-only, `schedules/<name>.ts` or `.md`. `cron` (5-field, **UTC on Vercel**, m
 
 ## Default harness (built-in tools)
 
-`bash`, `read_file`, `write_file`, `glob`, `grep` (proxy into sandbox), `web_fetch`, `web_search`, `todo`, `ask_question`, `agent`, `load_skill` (when skills exist), `connection_search` (when connections exist). Override by authoring a tool at the same slug (spread the default from `eve/tools/defaults` to keep its wiring); disable with `disableTool()` sentinel. Audit these in Phase 4 — e.g. disable `bash`/`web_fetch` for agents that shouldn't shell out or fetch arbitrary URLs.
+`bash`, `read_file`, `write_file`, `glob`, `grep` (proxy into sandbox), `web_fetch`, `web_search`, `todo`, `ask_question`, `agent`, `load_skill` (when skills exist), `connection_search` (when connections exist). Override by authoring a tool at the same slug (spread the default from `eve/tools/defaults` to keep its wiring); disable with `disableTool()` sentinel. Audit these in the security-hardening phase — e.g. disable `bash`/`web_fetch` for agents that shouldn't shell out or fetch arbitrary URLs.
 
 ## CLI quick reference
 

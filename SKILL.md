@@ -7,7 +7,7 @@ description: Design and build a working agent with Vercel's eve framework. Use w
 
 You are helping the user go from "I want an agent that does X" to a deployed, secured, eval-covered eve agent. eve is Vercel's filesystem-first framework for durable backend agents: an agent is a directory of files (`instructions.md`, `tools/`, `skills/`, `channels/`, ...) that eve compiles and runs durably on the Workflow SDK.
 
-**Source of truth rule:** this skill is the design methodology. For exact API signatures, always read the version-matched docs bundled in the user's project at `node_modules/eve/docs/` (start with its `README.md`) before writing eve code. If eve isn't installed yet, scaffold first (Phase 2), then read the bundled docs.
+**Source of truth rule:** this skill is the design methodology. For exact API signatures, always read the version-matched docs bundled in the user's project at `node_modules/eve/docs/` (start with its `README.md`) before writing eve code. If eve isn't installed yet, scaffold first (Phase 4), then read the bundled docs.
 
 Reference files in this skill:
 - `references/feature-map.md` — every eve surface, when to use it, and decision tables
@@ -16,14 +16,14 @@ Reference files in this skill:
 
 ## The workflow
 
-Work through the phases in order, starting with Phase 0 (detect what already exists). Do not skip Phase 1 (discovery) — feature choices, security posture, and eval strategy all fall out of those answers. Keep the user in the loop at each phase boundary: show what you decided and why before building on it.
+Work through the phases in order, starting with Phase 0 (detect what already exists). Do not skip Phase 1 (discovery) or Phase 2 (system design) — the design trace is where agent quality is decided; features, security posture, and eval strategy all fall out of it. Keep the user in the loop at each phase boundary: show what you decided and why before building on it.
 
 ## Phase 0 — Detect the starting point
 
 Before asking anything, check the working directory — never ask the user something the filesystem can answer:
 
 - `node_modules/eve/docs/` exists → eve is installed; read its `README.md` now and note the version (`npm ls eve`).
-- `agent/` with `instructions.md` or `agent.ts` → an existing eve agent. Inventory it with `eve info` and treat the work as extending/hardening, not greenfield — Phase 1 then focuses on what's missing, and Phases 4–5 apply to the existing surfaces too.
+- `agent/` with `instructions.md` or `agent.ts` → an existing eve agent. Inventory it with `eve info` and treat the work as extending/hardening, not greenfield — Phases 1–2 then focus on what's missing or undesigned, and Phases 5–6 apply to the existing surfaces too.
 - `package.json` without eve → candidate for `eve init .` (needs no `agent/` files yet).
 - Empty or unrelated directory → plan a fresh `npx eve@latest init <name>` scaffold.
 
@@ -44,9 +44,36 @@ Interview the user before touching code. Ask only what isn't already clear from 
 
 Summarize the answers back as a one-paragraph agent spec and get confirmation.
 
-## Phase 2 — Map requirements to eve features
+## Phase 2 — Design the system before choosing features
 
-Using the interview answers and `references/feature-map.md`, produce a short architecture plan: the `agent/` directory tree you intend to build, with one line per file explaining why it exists. Core mapping heuristics:
+This is the most important phase. Do not pick eve features or write a directory tree yet — first design the agent's *behavior* and get the user to sign off on it. Work through these steps in conversation, one at a time:
+
+1. **Trace the core scenarios end to end.** For each core job (2–4 traces: the main happy path, a sensitive-action path, and one messy/ambiguous path), narrate the runtime sequence concretely, as a numbered walkthrough:
+   - What arrives — which surface, what the message/webhook/cron tick looks like, who the caller is.
+   - What the agent knows at that moment — instructions, any loaded skill, history, durable state.
+   - Each decision and action in order: *"it calls `lookup_order` with `{orderId: "1042"}`, which queries the orders DB and returns status + items"* — name the action, show example input and output, say where the data lives.
+   - Where it must stop for a human — an approval before an irreversible step, or a clarifying question when input is ambiguous — and what resuming looks like.
+   - What goes back to the user, in what form, on what surface.
+
+   Write the traces with real example data, not abstractions. A trace that says "the agent processes the request" is not a trace.
+
+2. **Derive the tool inventory from the traces.** Every distinct action the traces used becomes a candidate tool or connection, as a one-line contract: name, purpose, input → output, side effect class (read-only / reversible write / irreversible), data source or system it touches. Merge near-duplicates. Cut anything no trace needed — if no scenario calls it, it doesn't exist.
+
+3. **Assign every decision to a decider.** For each branch point in the traces, decide *who* makes the call:
+   - the **model** (goes in instructions or a skill),
+   - **code** (goes inside a tool — validation, tenant scoping, thresholds),
+   - a **human** (approval gate or `ask_question`).
+   Getting this split right is most of agent design. Anything correctness- or safety-critical should be code or human, not model judgment.
+
+4. **Sketch the data flow.** What enters the model's context (and what must never — secrets, raw PII, whole tables); what leaves the system, to where; which credentials exist and which side of the trust boundary each lives on.
+
+5. **Walk the failure modes** and give each an answer in the design: a tool errors mid-task; a replayed step re-fires a side effect (idempotency); the model over-calls an expensive tool (budget/limits); the user asks something out of scope (refusal in instructions); a session runs away on cost (token limits).
+
+Present the result compactly — scenario traces, tool contract table, decision-owner list, data-flow notes, failure answers — and iterate with the user until they would sign off. Each trace later becomes an eval in Phase 6.
+
+## Phase 3 — Map the design to eve features
+
+Now translate the confirmed design into an architecture plan using `references/feature-map.md`: the `agent/` directory tree you intend to build, with one line per file tying it back to the trace or contract that motivated it. Core mapping heuristics:
 
 | Requirement | eve feature |
 |---|---|
@@ -63,17 +90,17 @@ Using the interview answers and `references/feature-map.md`, produce a short arc
 | Run code, shell, or file work | the built-in sandbox tools; override `agent/sandbox/` only for setup, seeding, backend, or network policy |
 | Per-tenant/per-user tools, skills, or instructions | `defineDynamic` |
 | Audit logging, metrics, persistence of events | `agent/hooks/<name>.ts` (observe-only) |
-| Sensitive/irreversible actions | `approval` on the tool or connection (Phase 4) |
+| Sensitive/irreversible actions | `approval` on the tool or connection (Phase 5) |
 
 Default choices unless the user objects: nested layout (`agent/` under app root), default model (or `anthropic/claude-sonnet-5` gateway id explicitly), default sandbox backend, start with the fewest files that work. Present the plan and confirm before building.
 
-## Phase 3 — Build incrementally
+## Phase 4 — Build incrementally
 
 Build in this order, verifying each step before the next. eve is designed for this: start with two files, grow by adding files.
 
 1. **Scaffold** (skip if Phase 0 found an existing agent): `npx eve@latest init <name>` (new) or `eve init .` (existing project with `package.json` and no `agent/` yet). Requires Node 24+. Stop the interactive TUI; use `eve dev --no-ui` for headless verification. Model credential: `AI_GATEWAY_API_KEY` or `vercel link` for gateway ids; provider key (e.g. `ANTHROPIC_API_KEY`) plus `@ai-sdk/<provider>` for direct models.
 2. **Read the bundled docs** at `node_modules/eve/docs/README.md` — follow its reading order for each surface you're about to author.
-3. **Instructions + agent.ts**: write `instructions.md` from the Phase 1 spec — identity, scope, what to refuse, when to ask vs act. Set `model` in `agent.ts`; add `limits` (token budgets) early for anything with cost exposure.
+3. **Instructions + agent.ts**: write `instructions.md` from the Phase 1 spec and Phase 2 decision-owner list — identity, scope, what to refuse, when to ask vs act. Set `model` in `agent.ts`; add `limits` (token budgets) early for anything with cost exposure.
 4. **Tools**: one file per action, snake_case filename (that's the model-facing name). Model-facing `description` written for routing; Zod `inputSchema`; JSON-serializable output; use `toModelOutput` to shrink rich outputs. Tools run in the app runtime with `process.env` — never return secrets or raw sensitive data. Interrupted steps re-run: make side effects idempotent or gate them with `approval`.
 5. **Connections**: `defineMcpClientConnection` / `defineOpenAPIConnection`. Choose app-scoped auth (`getToken` from env/secret manager) vs user-scoped (`connect()` via Vercel Connect, or `defineInteractiveAuthorization` self-hosted). User-scoped requires route auth that resolves a real user — wire that dependency consciously.
 6. **Verify the core loop**: run `eve info` (confirms discovery + diagnostics), then `eve dev --no-ui` and drive a session over HTTP or the TUI. Fix discovery issues before adding surfaces (`eve info` is the first debugging move; artifacts land under `.eve/`).
@@ -81,7 +108,7 @@ Build in this order, verifying each step before the next. eve is designed for th
 
 Keep each addition small and runnable. Prefer deleting a feature over shipping an unverified one.
 
-## Phase 4 — Security hardening
+## Phase 5 — Security hardening
 
 Do this before any real data or traffic, using `references/security-checklist.md` in full. The non-negotiables:
 
@@ -92,7 +119,7 @@ Do this before any real data or traffic, using `references/security-checklist.md
 5. **Channel verification**: platform channels need their signing secrets set; custom channels must verify HMAC signatures in constant time and never trust body-supplied identity.
 6. **Data minimization**: filter/redact tool outputs; don't pass sensitive data into subagent messages; multi-tenant agents must scope every query and approval policy by `ctx.session.auth` (see `docs/patterns/multi-tenant-*` in the bundled docs).
 
-## Phase 5 — Evals, then ship
+## Phase 6 — Evals, then ship
 
 No agent is done without evals. Use `references/testing-and-evals.md`. Minimum bar:
 

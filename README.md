@@ -9,10 +9,11 @@ Where the official `vercel/eve` skill points your coding agent at eve's bundled 
 ## What it does
 
 1. **Discovery** — asks what the agent should do, who talks to it, what it integrates with, what's sensitive, and where it runs.
-2. **Feature mapping** — turns those answers into an `agent/` directory plan using decision tables covering tools vs skills vs connections vs subagents, channels, schedules, state, sandbox, and dynamic capabilities.
-3. **Incremental build** — scaffolds with `eve init`, then adds one surface at a time, verifying each with `eve info` / `eve dev` before moving on. Always defers to the version-matched docs in `node_modules/eve/docs` for exact APIs.
-4. **Security hardening** — route auth, HITL approvals on sensitive actions, sandbox network policy, harness audit, channel signature verification, data minimization, and cost limits, with a pre-production gate.
-5. **Evals** — smoke, negative, approval-flow, and multi-tenant probe evals, `mockModel` fixtures, and `eve eval --strict` in CI.
+2. **System design** — traces the core scenarios end to end with real example data (what arrives, what the agent knows, every tool call with inputs/outputs, where it pauses for a human, what fails), derives the tool inventory from the traces, and assigns every decision to model, code, or human — before any framework choices.
+3. **Feature mapping** — translates the signed-off design into an `agent/` directory plan using decision tables covering tools vs skills vs connections vs subagents, channels, schedules, state, sandbox, and dynamic capabilities.
+4. **Incremental build** — scaffolds with `eve init`, then adds one surface at a time, verifying each with `eve info` / `eve dev` before moving on. Always defers to the version-matched docs in `node_modules/eve/docs` for exact APIs.
+5. **Security hardening** — route auth, HITL approvals on sensitive actions, sandbox network policy, harness audit, channel signature verification, data minimization, and cost limits, with a pre-production gate.
+6. **Evals** — every design trace becomes an eval: smoke, negative, approval-flow, and multi-tenant probes, `mockModel` fixtures, and `eve eval --strict` in CI.
 
 ## Install
 
@@ -28,7 +29,7 @@ git clone https://github.com/scottschindler/eve-agent-design.git ~/.claude/skill
 
 ## Files
 
-- `SKILL.md` — the five-phase workflow
+- `SKILL.md` — the design-first workflow
 - `references/feature-map.md` — every eve surface and when to use it
 - `references/security-checklist.md` — trust model and hardening checklist
 - `references/testing-and-evals.md` — eval strategy and CI gating
