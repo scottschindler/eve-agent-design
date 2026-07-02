@@ -1,5 +1,7 @@
 # eve-agent-design
 
+[![skills.sh](https://skills.sh/b/scottschindler/eve-agent-design-skill)](https://skills.sh/scottschindler/eve-agent-design-skill)
+
 A Claude Code skill that helps you design and build useful agents with [eve](https://eve.dev), Vercel's filesystem-first framework for durable AI agents.
 
 Where the official `vercel/eve` skill points your coding agent at eve's bundled API docs, this skill supplies the **design methodology**: it interviews you about what you want to build, maps your requirements to the right eve features, then drives an incremental build with security hardening and evals baked in — so you end up with a working, tested, production-ready agent instead of a demo.
@@ -15,13 +17,13 @@ Where the official `vercel/eve` skill points your coding agent at eve's bundled 
 ## Install
 
 ```bash
-npx skills add scottschindler/eve-agent-design   # if published to the skills registry
+npx skills add scottschindler/eve-agent-design-skill
 ```
 
-or manually:
+Works with Claude Code, Cursor, Codex, and any other agent the [skills CLI](https://github.com/vercel-labs/skills) supports. Or manually:
 
 ```bash
-git clone <this repo> ~/.claude/skills/eve-agent-design
+git clone https://github.com/scottschindler/eve-agent-design-skill.git ~/.claude/skills/eve-agent-design
 ```
 
 ## Files
